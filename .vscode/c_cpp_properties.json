@@ -1,0 +1,29 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "/usr/include",
+                "${env.ROOTSYS}/include",
+                "/usr/include/x86_64-linux-gnu",
+                "/usr/include/linux"
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": "",
+                "path": [
+                    "/usr/include",
+                    "${env.ROOTSYS}/include",
+                    "${workspaceRoot}"
+                ]
+            },
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "clang_format": {
+        "style": "file",
+        "fallback-style": "Google",
+        "sort-includes": false
+    },
+    "version": 3
+}

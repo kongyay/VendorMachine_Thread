@@ -14,13 +14,14 @@
 
 int stock[NUM_SUPPLIER];
 char stock_name[NUM_SUPPLIER][MAX_NAME];
+pthread_mutex_t stock_mutex[NUM_SUPPLIER];
+pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // for thread's function parameter
 struct Param {
     int i;
 };
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void* supplier_activity(void* params) {
     struct Param *param = (struct Param*)params;
@@ -30,7 +31,7 @@ void* supplier_activity(void* params) {
     int repeat;
     int current_repeat = 0;
     int current_increase = 1;
-    int i = param->i;
+    int i = param->i,j;
     FILE *fp;
 
     // Read file
@@ -39,7 +40,7 @@ void* supplier_activity(void* params) {
     fp = fopen(filename, "r");
     if(!fp) {
         fprintf(stderr, "\x1B[32m\x1B[32m ✓ Open failed : %s \x1B[0m\e[0m\n",filename);
-        exit(1);
+        pthread_exit(NULL);
     } else {
         fprintf(stderr, "\x1B[32m\x1B[32m ✓ Open successful : %s \x1B[0m\e[0m\n",filename);
     }
@@ -47,9 +48,20 @@ void* supplier_activity(void* params) {
     name[strlen(name)-2] = '\0'; // remove \n
     strcpy(stock_name[i],name);
     fscanf(fp,"%d %d",&interval,&repeat);
-    fprintf(stderr,"\t%s\tInterval:%d\tRepeat:%d\n",name,interval,repeat);
+    fprintf(stderr,"\tSupplier%d:\t%s\tInterval:%d\tRepeat:%d\n",i,name,interval,repeat);
     current_interval = interval; // set start interval = default
+    pthread_mutex_init ( &stock_mutex[i], NULL);
     fclose(fp);
+
+    // Loop check if this supplier's product has the same name as other past suppliers' product (Duplicate)
+    for(j=0;j<i;j++) {
+        while(strlen(stock_name[j])<1);
+        if(strcmp(name,stock_name[j])==0) { // Duplicate
+            fprintf(stderr,"\tNOTE: Supplier%d has the same product as Supplier%d (%s). They will use the same vending machine.\n",i,j,name);
+            i = j; // Move i to that stock_name = union
+            j = NUM_SUPPLIER + 1; //break;
+        }
+    }
 
     // Work Loop
     while(1) {
@@ -60,10 +72,10 @@ void* supplier_activity(void* params) {
         strftime(dateStr, sizeof(dateStr), "%c", tm);
 
         if(stock[i] < MAX_PRODUCT) { // Not full
-            pthread_mutex_lock(&mutex);
+            pthread_mutex_lock(&stock_mutex[i]);
             stock[i]++;
             printf("++++++++ %s || %s supplied 1 unit. stock after = %d.....\n",dateStr,name,stock[i]);
-            pthread_mutex_unlock(&mutex);
+            pthread_mutex_unlock(&stock_mutex[i]);
             // Restart interval & repeat
             current_interval = interval;
             current_repeat = 0;
@@ -80,7 +92,7 @@ void* supplier_activity(void* params) {
         fflush(stdout);
         sleep(current_interval);
     }
-    exit(0);
+    pthread_exit(NULL);
 }
 
 void* consumer_activity(void* params) {
@@ -100,7 +112,7 @@ void* consumer_activity(void* params) {
     fp = fopen(filename, "r");
     if(!fp) {
         fprintf(stderr, "\x1B[32m\x1B[32m ✓ Open failed : %s \x1B[0m\e[0m\n",filename);
-        exit(1);
+        pthread_exit(NULL);
     } else {
         fprintf(stderr, "\x1B[32m\x1B[32m ✓ Open successful : %s \x1B[0m\e[0m\n",filename);
     }
@@ -109,7 +121,7 @@ void* consumer_activity(void* params) {
     name[strlen(name)-2] = '\0'; // remove \n
     fscanf(fp,"%d %d",&interval,&repeat);
     current_interval = interval;
-    fprintf(stderr,"\t%s\tInterval:%d\tRepeat:%d\n",name,interval,repeat);
+    fprintf(stderr,"\tConsumer%d:\t%s\tInterval:%d\tRepeat:%d\n",i,name,interval,repeat);
     fclose(fp);
 
     // Loop check if consumer wants to buy one of the available product supplied or not
@@ -120,8 +132,8 @@ void* consumer_activity(void* params) {
             j = NUM_SUPPLIER + 1; //break;
         }
         if(j==NUM_SUPPLIER-1) { // Not Available (None of supplier supplies this product)
-            fprintf(stderr,"ERROR: No Item To Buy = %s ",name);
-            exit(1);
+            fprintf(stderr,"\tERROR: No Item To Buy = %s \n",name);
+            pthread_exit(NULL);
         }   
     }
     
@@ -132,10 +144,10 @@ void* consumer_activity(void* params) {
         char dateStr[64];
         strftime(dateStr, sizeof(dateStr), "%c", tm);
         if(stock[i]>0) {
-            pthread_mutex_lock(&mutex);
+            pthread_mutex_lock(&stock_mutex[i]);
             stock[i]--;
             printf("-------- %s || %s consumed 1 unit. stock after = %d.....\n",dateStr,name,stock[i]);
-            pthread_mutex_unlock(&mutex);
+            pthread_mutex_unlock(&stock_mutex[i]);
             current_interval = interval;
             current_repeat = 0;
         } else {  
@@ -150,7 +162,7 @@ void* consumer_activity(void* params) {
         fflush(stdout);
         sleep(current_interval);
     }
-    exit(0);
+    pthread_exit(NULL);
 }
 
 void sigint_handler(int sig)

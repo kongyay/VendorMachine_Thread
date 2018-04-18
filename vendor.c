@@ -15,7 +15,6 @@
 int stock[NUM_SUPPLIER];
 char stock_name[NUM_SUPPLIER][MAX_NAME];
 pthread_mutex_t stock_mutex[NUM_SUPPLIER];
-pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // for thread's function parameter
 struct Param {
@@ -48,7 +47,7 @@ void* supplier_activity(void* params) {
     name[strlen(name)-2] = '\0'; // remove \n
     strcpy(stock_name[i],name);
     fscanf(fp,"%d %d",&interval,&repeat);
-    fprintf(stderr,"\tSupplier%d:\t%s\tInterval:%d\tRepeat:%d\n",i,name,interval,repeat);
+    fprintf(stderr,"\tSupplier%d:\t%s\tInterval:%d\tRepeat:%d\n",i+1,name,interval,repeat);
     current_interval = interval; // set start interval = default
     pthread_mutex_init ( &stock_mutex[i], NULL);
     fclose(fp);
@@ -81,7 +80,7 @@ void* supplier_activity(void* params) {
             current_repeat = 0;
 
         } else { // Full
-            if((++current_repeat)%repeat == 0) { // Wait x times until it reach repeat variable
+            if((++current_repeat)%5 == 0) { // Wait x times until it reach repeat variable
                 current_repeat = 0;
                 current_interval = interval * (++current_increase); // Increase interval
                 if(current_interval>60) // Max cap = 60s.
@@ -121,7 +120,7 @@ void* consumer_activity(void* params) {
     name[strlen(name)-2] = '\0'; // remove \n
     fscanf(fp,"%d %d",&interval,&repeat);
     current_interval = interval;
-    fprintf(stderr,"\tConsumer%d:\t%s\tInterval:%d\tRepeat:%d\n",i,name,interval,repeat);
+    fprintf(stderr,"\tConsumer%d:\t%s\tInterval:%d\tRepeat:%d\n",k+1,name,interval,repeat);
     fclose(fp);
 
     // Loop check if consumer wants to buy one of the available product supplied or not
@@ -180,7 +179,6 @@ int main(int argc, char **argv)
     pthread_t consumer_threads[NUM_CONSUMER];
     pthread_t supplier_threads[NUM_SUPPLIER];
 
-    FILE *fp;
     int i;
 
     signal(SIGINT, sigint_handler);
